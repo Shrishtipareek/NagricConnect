@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import CascadingLocationSelector from '../components/CascadingLocationSelector';
+import SmartLocationSelector from '../components/SmartLocationSelector';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -127,9 +127,9 @@ const Register = () => {
             </select>
           </div>
 
-          {/* Cascading Location Selector (Country -> State -> District -> Sub-District -> Village) */}
+          {/* Smart PIN-Code Assisted Location Selector */}
           <div className="pt-2 border-t border-gray-200">
-            <CascadingLocationSelector
+            <SmartLocationSelector
               value={formData.location}
               onChange={handleLocationChange}
               error={locationError}

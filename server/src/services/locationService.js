@@ -1,3 +1,5 @@
+const postalCodeService = require('./postalCodeService');
+
 /**
  * In-Memory Cache Store for Location Queries
  */
@@ -8,6 +10,7 @@ const cache = {
   districts: new Map(),
   subDistricts: new Map(),
   villages: new Map(),
+  pincodeVillages: new Map(),
 };
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -18,6 +21,7 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
  */
 const INDIA_LGD_DATA = {
   country: { id: 'IN', name: 'India', code: 'IND', lgdCode: '91' },
+
   states: [
     { id: 'IN-RJ', name: 'Rajasthan', lgdCode: '8' },
     { id: 'IN-UP', name: 'Uttar Pradesh', lgdCode: '9' },
@@ -31,17 +35,36 @@ const INDIA_LGD_DATA = {
     { id: 'IN-TN', name: 'Tamil Nadu', lgdCode: '33' },
     { id: 'IN-WB', name: 'West Bengal', lgdCode: '19' },
     { id: 'IN-DL', name: 'Delhi', lgdCode: '7' },
+    { id: 'IN-AP', name: 'Andhra Pradesh', lgdCode: '28' },
+    { id: 'IN-AR', name: 'Arunachal Pradesh', lgdCode: '12' },
+    { id: 'IN-AS', name: 'Assam', lgdCode: '18' },
+    { id: 'IN-CG', name: 'Chhattisgarh', lgdCode: '22' },
+    { id: 'IN-GA', name: 'Goa', lgdCode: '30' },
+    { id: 'IN-HP', name: 'Himachal Pradesh', lgdCode: '2' },
+    { id: 'IN-JH', name: 'Jharkhand', lgdCode: '20' },
+    { id: 'IN-KL', name: 'Kerala', lgdCode: '32' },
+    { id: 'IN-MN', name: 'Manipur', lgdCode: '14' },
+    { id: 'IN-ML', name: 'Meghalaya', lgdCode: '17' },
+    { id: 'IN-MZ', name: 'Mizoram', lgdCode: '15' },
+    { id: 'IN-NL', name: 'Nagaland', lgdCode: '13' },
+    { id: 'IN-OD', name: 'Odisha', lgdCode: '21' },
+    { id: 'IN-SK', name: 'Sikkim', lgdCode: '11' },
+    { id: 'IN-TG', name: 'Telangana', lgdCode: '36' },
+    { id: 'IN-TR', name: 'Tripura', lgdCode: '16' },
+    { id: 'IN-UK', name: 'Uttarakhand', lgdCode: '5' },
   ],
+
   districts: {
     'IN-RJ': [
+      { id: 'DIS-RJ-CHU', name: 'Churu', lgdCode: '96' },
       { id: 'DIS-RJ-JAI', name: 'Jaipur', lgdCode: '101' },
       { id: 'DIS-RJ-UDA', name: 'Udaipur', lgdCode: '102' },
       { id: 'DIS-RJ-JOD', name: 'Jodhpur', lgdCode: '103' },
       { id: 'DIS-RJ-KOT', name: 'Kota', lgdCode: '104' },
-      { id: 'DIS-RJ-AJM', name: 'Ajmer', lgdCode: '105' },
-      { id: 'DIS-RJ-ALW', name: 'Alwar', lgdCode: '106' },
-      { id: 'DIS-RJ-BHI', name: 'Bhilwara', lgdCode: '107' },
-      { id: 'DIS-RJ-SIK', name: 'Sikar', lgdCode: '108' },
+      { id: 'DIS-RJ-AJM', name: 'Ajmer', lgdCode: '86' },
+      { id: 'DIS-RJ-ALW', name: 'Alwar', lgdCode: '87' },
+      { id: 'DIS-RJ-BHI', name: 'Bhilwara', lgdCode: '92' },
+      { id: 'DIS-RJ-SIK', name: 'Sikar', lgdCode: '114' },
     ],
     'IN-UP': [
       { id: 'DIS-UP-KNP', name: 'Kanpur Nagar', lgdCode: '150' },
@@ -49,130 +72,202 @@ const INDIA_LGD_DATA = {
       { id: 'DIS-UP-VNS', name: 'Varanasi', lgdCode: '152' },
       { id: 'DIS-UP-AGR', name: 'Agra', lgdCode: '153' },
       { id: 'DIS-UP-PRG', name: 'Prayagraj', lgdCode: '154' },
-      { id: 'DIS-UP-GZB', name: 'Ghaziabad', lgdCode: '155' },
-      { id: 'DIS-UP-NOI', name: 'Gautam Buddha Nagar', lgdCode: '156' },
-      { id: 'DIS-UP-GKP', name: 'Gorakhpur', lgdCode: '157' },
     ],
     'IN-MH': [
       { id: 'DIS-MH-PUN', name: 'Pune', lgdCode: '480' },
       { id: 'DIS-MH-MUM', name: 'Mumbai Suburban', lgdCode: '481' },
       { id: 'DIS-MH-NGP', name: 'Nagpur', lgdCode: '482' },
-      { id: 'DIS-MH-NSK', name: 'Nashik', lgdCode: '483' },
-      { id: 'DIS-MH-THA', name: 'Thane', lgdCode: '484' },
     ],
-    'IN-MP': [
-      { id: 'DIS-MP-BHO', name: 'Bhopal', lgdCode: '390' },
-      { id: 'DIS-MP-IND', name: 'Indore', lgdCode: '391' },
-      { id: 'DIS-MP-GWL', name: 'Gwalior', lgdCode: '392' },
-      { id: 'DIS-MP-JBP', name: 'Jabalpur', lgdCode: '393' },
-    ],
-    'IN-BR': [
-      { id: 'DIS-BR-PAT', name: 'Patna', lgdCode: '210' },
-      { id: 'DIS-BR-GAY', name: 'Gaya', lgdCode: '211' },
-      { id: 'DIS-BR-[#1]', name: 'Muzaffarpur', lgdCode: '212' },
-    ],
-    'IN-GJ': [
-      { id: 'DIS-GJ-AMD', name: 'Ahmedabad', lgdCode: '440' },
-      { id: 'DIS-GJ-SUR', name: 'Surat', lgdCode: '441' },
-      { id: 'DIS-GJ-VAD', name: 'Vadodara', lgdCode: '442' },
-      { id: 'DIS-GJ-RJK', name: 'Rajkot', lgdCode: '443' },
-    ],
-    'IN-PB': [
-      { id: 'DIS-PB-LUD', name: 'Ludhiana', lgdCode: '30' },
-      { id: 'DIS-PB-ASR', name: 'Amritsar', lgdCode: '31' },
-      { id: 'DIS-PB-JAL', name: 'Jalandhar', lgdCode: '32' },
-    ],
-    'IN-HR': [
-      { id: 'DIS-HR-GUG', name: 'Gurugram', lgdCode: '70' },
-      { id: 'DIS-HR-FAR', name: 'Faridabad', lgdCode: '71' },
-      { id: 'DIS-HR-HIS', name: 'Hisar', lgdCode: '72' },
-    ],
-    'IN-KA': [
-      { id: 'DIS-KA-BLR', name: 'Bengaluru Urban', lgdCode: '550' },
-      { id: 'DIS-KA-MYS', name: 'Mysuru', lgdCode: '551' },
-    ],
-    'IN-TN': [
-      { id: 'DIS-TN-CHE', name: 'Chennai', lgdCode: '600' },
-      { id: 'DIS-TN-CBE', name: 'Coimbatore', lgdCode: '601' },
-      { id: 'DIS-TN-MAD', name: 'Madurai', lgdCode: '602' },
-    ],
-    'IN-WB': [
-      { id: 'DIS-WB-KOL', name: 'Kolkata', lgdCode: '310' },
-      { id: 'DIS-WB-HWR', name: 'Howrah', lgdCode: '311' },
-    ],
-    'IN-DL': [
-      { id: 'DIS-DL-NEW', name: 'New Delhi', lgdCode: '90' },
-      { id: 'DIS-DL-SOU', name: 'South Delhi', lgdCode: '91' },
-    ]
   },
+
   subDistricts: {
+    'DIS-RJ-CHU': [
+      { id: 'SUB-CHU-CHU', name: 'Churu Tehsil', lgdCode: '00490' },
+      { id: 'SUB-CHU-RAT', name: 'Ratangarh Tehsil', lgdCode: '00491' },
+      { id: 'SUB-CHU-TAR', name: 'Taranagar Tehsil', lgdCode: '00492' },
+      { id: 'SUB-CHU-RAJ', name: 'Rajgarh Tehsil', lgdCode: '00493' },
+      { id: 'SUB-CHU-SUJ', name: 'Sujangarh Tehsil', lgdCode: '00494' },
+    ],
     'DIS-RJ-JAI': [
-      { id: 'SUB-JAI-AMB', name: 'Amer Tehsil / Block', lgdCode: '00501' },
-      { id: 'SUB-JAI-SAN', name: 'Sanganer Tehsil / Block', lgdCode: '00502' },
-      { id: 'SUB-JAI-CHAK', name: 'Chaksu Tehsil / Block', lgdCode: '00503' },
-      { id: 'SUB-JAI-KOT', name: 'Kotputli Tehsil / Block', lgdCode: '00504' },
-      { id: 'SUB-JAI-JAM', name: 'Jamwa Ramgarh Tehsil', lgdCode: '00505' },
+      { id: 'SUB-JAI-AMB', name: 'Amer Tehsil', lgdCode: '00501' },
+      { id: 'SUB-JAI-SAN', name: 'Sanganer Tehsil', lgdCode: '00502' },
+      { id: 'SUB-JAI-CHAK', name: 'Chaksu Tehsil', lgdCode: '00503' },
+      { id: 'SUB-JAI-KOT', name: 'Kotputli Tehsil', lgdCode: '00504' },
     ],
     'DIS-RJ-UDA': [
-      { id: 'SUB-UDA-GIR', name: 'Girwa Tehsil / Block', lgdCode: '00510' },
+      { id: 'SUB-UDA-GIR', name: 'Girwa Tehsil', lgdCode: '00510' },
       { id: 'SUB-UDA-MAV', name: 'Mavli Tehsil', lgdCode: '00511' },
-      { id: 'SUB-UDA-SAL', name: 'Salumbar Tehsil', lgdCode: '00512' },
     ],
     'DIS-UP-KNP': [
       { id: 'SUB-KNP-SAD', name: 'Kanpur Sadar Tehsil', lgdCode: '00601' },
       { id: 'SUB-KNP-BIL', name: 'Bhilaur Tehsil', lgdCode: '00602' },
-      { id: 'SUB-KNP-GHAT', name: 'Ghatampur Tehsil', lgdCode: '00603' },
     ],
-    'DIS-UP-LKO': [
-      { id: 'SUB-LKO-SAD', name: 'Lucknow Sadar Tehsil', lgdCode: '00610' },
-      { id: 'SUB-LKO-MAL', name: 'Maliahabad Tehsil', lgdCode: '00611' },
-      { id: 'SUB-LKO-MOH', name: 'Mohanlalganj Tehsil', lgdCode: '00612' },
-    ],
-    'DIS-MH-PUN': [
-      { id: 'SUB-PUN-HAV', name: 'Haveli Tehsil', lgdCode: '00701' },
-      { id: 'SUB-PUN-BAR', name: 'Baramati Tehsil', lgdCode: '00702' },
-    ]
   },
+
   villages: {
+    'DIS-RJ-CHU': [
+      {
+        id: 'VIL-CHU-001',
+        name: 'Village A (Bhaleri)',
+        lgdCode: '108101',
+        pincode: '331001',
+        subDistrictId: 'SUB-CHU-CHU',
+        subDistrictName: 'Churu Tehsil',
+        districtId: 'DIS-RJ-CHU',
+        districtName: 'Churu',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: 'VIL-CHU-002',
+        name: 'Village B (Ratanpura)',
+        lgdCode: '108102',
+        pincode: '331001',
+        subDistrictId: 'SUB-CHU-RAT',
+        subDistrictName: 'Ratangarh Tehsil',
+        districtId: 'DIS-RJ-CHU',
+        districtName: 'Churu',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: 'VIL-CHU-003',
+        name: 'Village C (Taranagar Gram)',
+        lgdCode: '108103',
+        pincode: '331001',
+        subDistrictId: 'SUB-CHU-TAR',
+        subDistrictName: 'Taranagar Tehsil',
+        districtId: 'DIS-RJ-CHU',
+        districtName: 'Churu',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: 'VIL-CHU-004',
+        name: 'Rajgarh Gram',
+        lgdCode: '108104',
+        pincode: '331023',
+        subDistrictId: 'SUB-CHU-RAJ',
+        subDistrictName: 'Rajgarh Tehsil',
+        districtId: 'DIS-RJ-CHU',
+        districtName: 'Churu',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+    ],
     'DIS-RJ-JAI': [
-      { id: 'VIL-JAI-001', name: 'Rampur', lgdCode: '102938', subDistrictId: 'SUB-JAI-AMB', subDistrictName: 'Amer Tehsil / Block' },
-      { id: 'VIL-JAI-002', name: 'Chandwaji', lgdCode: '102939', subDistrictId: 'SUB-JAI-AMB', subDistrictName: 'Amer Tehsil / Block' },
-      { id: 'VIL-JAI-003', name: 'Achrol', lgdCode: '102940', subDistrictId: 'SUB-JAI-AMB', subDistrictName: 'Amer Tehsil / Block' },
-      { id: 'VIL-JAI-004', name: 'Kukas', lgdCode: '102941', subDistrictId: 'SUB-JAI-AMB', subDistrictName: 'Amer Tehsil / Block' },
-      { id: 'VIL-JAI-005', name: 'Bilwa', lgdCode: '102942', subDistrictId: 'SUB-JAI-SAN', subDistrictName: 'Sanganer Tehsil / Block' },
-      { id: 'VIL-JAI-006', name: 'Watika', lgdCode: '102943', subDistrictId: 'SUB-JAI-SAN', subDistrictName: 'Sanganer Tehsil / Block' },
-      { id: 'VIL-JAI-007', name: 'Mahapura', lgdCode: '102944', subDistrictId: 'SUB-JAI-SAN', subDistrictName: 'Sanganer Tehsil / Block' },
-      { id: 'VIL-JAI-008', name: 'Kothun', lgdCode: '102945', subDistrictId: 'SUB-JAI-CHAK', subDistrictName: 'Chaksu Tehsil / Block' },
-      { id: 'VIL-JAI-009', name: 'Nimeda', lgdCode: '102946', subDistrictId: 'SUB-JAI-CHAK', subDistrictName: 'Chaksu Tehsil / Block' },
-      { id: 'VIL-JAI-010', name: 'Bhabru', lgdCode: '102947', subDistrictId: 'SUB-JAI-KOT', subDistrictName: 'Kotputli Tehsil / Block' },
+      {
+        id: 'VIL-JAI-001',
+        name: 'Rampur',
+        lgdCode: '102938',
+        pincode: '302001',
+        subDistrictId: 'SUB-JAI-AMB',
+        subDistrictName: 'Amer Tehsil',
+        districtId: 'DIS-RJ-JAI',
+        districtName: 'Jaipur',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: 'VIL-JAI-002',
+        name: 'Chandwaji',
+        lgdCode: '102939',
+        pincode: '303104',
+        subDistrictId: 'SUB-JAI-AMB',
+        subDistrictName: 'Amer Tehsil',
+        districtId: 'DIS-RJ-JAI',
+        districtName: 'Jaipur',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: 'VIL-JAI-003',
+        name: 'Achrol',
+        lgdCode: '102940',
+        pincode: '303002',
+        subDistrictId: 'SUB-JAI-AMB',
+        subDistrictName: 'Amer Tehsil',
+        districtId: 'DIS-RJ-JAI',
+        districtName: 'Jaipur',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: 'VIL-JAI-005',
+        name: 'Bilwa',
+        lgdCode: '102942',
+        pincode: '302022',
+        subDistrictId: 'SUB-JAI-SAN',
+        subDistrictName: 'Sanganer Tehsil',
+        districtId: 'DIS-RJ-JAI',
+        districtName: 'Jaipur',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
     ],
     'DIS-RJ-UDA': [
-      { id: 'VIL-UDA-001', name: 'Shyamnagar', lgdCode: '103001', subDistrictId: 'SUB-UDA-GIR', subDistrictName: 'Girwa Tehsil / Block' },
-      { id: 'VIL-UDA-002', name: 'Bhuwana', lgdCode: '103002', subDistrictId: 'SUB-UDA-GIR', subDistrictName: 'Girwa Tehsil / Block' },
-      { id: 'VIL-UDA-003', name: 'Bedla', lgdCode: '103003', subDistrictId: 'SUB-UDA-GIR', subDistrictName: 'Girwa Tehsil / Block' },
-      { id: 'VIL-UDA-004', name: 'Mavli Village', lgdCode: '103004', subDistrictId: 'SUB-UDA-MAV', subDistrictName: 'Mavli Tehsil' },
-      { id: 'VIL-UDA-005', name: 'Ghasar', lgdCode: '103005', subDistrictId: 'SUB-UDA-MAV', subDistrictName: 'Mavli Tehsil' },
+      {
+        id: 'VIL-UDA-001',
+        name: 'Shyamnagar',
+        lgdCode: '103001',
+        pincode: '313001',
+        subDistrictId: 'SUB-UDA-GIR',
+        subDistrictName: 'Girwa Tehsil',
+        districtId: 'DIS-RJ-UDA',
+        districtName: 'Udaipur',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: 'VIL-UDA-002',
+        name: 'Bhuwana',
+        lgdCode: '103002',
+        pincode: '313001',
+        subDistrictId: 'SUB-UDA-GIR',
+        subDistrictName: 'Girwa Tehsil',
+        districtId: 'DIS-RJ-UDA',
+        districtName: 'Udaipur',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
     ],
     'DIS-UP-KNP': [
-      { id: 'VIL-KNP-001', name: 'Bithoor', lgdCode: '150001', subDistrictId: 'SUB-KNP-SAD', subDistrictName: 'Kanpur Sadar Tehsil' },
-      { id: 'VIL-KNP-002', name: 'Mandhana', lgdCode: '150002', subDistrictId: 'SUB-KNP-SAD', subDistrictName: 'Kanpur Sadar Tehsil' },
-      { id: 'VIL-KNP-003', name: 'Kalyanpur Gram', lgdCode: '150003', subDistrictId: 'SUB-KNP-SAD', subDistrictName: 'Kanpur Sadar Tehsil' },
-      { id: 'VIL-KNP-004', name: 'Shivrajpur', lgdCode: '150004', subDistrictId: 'SUB-KNP-BIL', subDistrictName: 'Bhilaur Tehsil' },
-      { id: 'VIL-KNP-005', name: 'Bilhaur Dehat', lgdCode: '150005', subDistrictId: 'SUB-KNP-BIL', subDistrictName: 'Bhilaur Tehsil' },
-      { id: 'VIL-KNP-006', name: 'Reuna', lgdCode: '150006', subDistrictId: 'SUB-KNP-GHAT', subDistrictName: 'Ghatampur Tehsil' },
+      {
+        id: 'VIL-KNP-001',
+        name: 'Bithoor',
+        lgdCode: '150001',
+        pincode: '208017',
+        subDistrictId: 'SUB-KNP-SAD',
+        subDistrictName: 'Kanpur Sadar Tehsil',
+        districtId: 'DIS-UP-KNP',
+        districtName: 'Kanpur Nagar',
+        stateId: 'IN-UP',
+        stateName: 'Uttar Pradesh',
+        countryId: 'IN',
+        countryName: 'India',
+      },
     ],
-    'DIS-UP-LKO': [
-      { id: 'VIL-LKO-001', name: 'Bakshi Ka Talab', lgdCode: '151001', subDistrictId: 'SUB-LKO-SAD', subDistrictName: 'Lucknow Sadar Tehsil' },
-      { id: 'VIL-LKO-002', name: 'Chinhat Gram', lgdCode: '151002', subDistrictId: 'SUB-LKO-SAD', subDistrictName: 'Lucknow Sadar Tehsil' },
-      { id: 'VIL-LKO-003', name: 'Kakori', lgdCode: '151003', subDistrictId: 'SUB-LKO-MAL', subDistrictName: 'Maliahabad Tehsil' },
-      { id: 'VIL-LKO-004', name: 'Gosainganj', lgdCode: '151004', subDistrictId: 'SUB-LKO-MOH', subDistrictName: 'Mohanlalganj Tehsil' },
-    ],
-    'DIS-MH-PUN': [
-      { id: 'VIL-PUN-001', name: 'Wagholi Gram', lgdCode: '480001', subDistrictId: 'SUB-PUN-HAV', subDistrictName: 'Haveli Tehsil' },
-      { id: 'VIL-PUN-002', name: 'Pirangut', lgdCode: '480002', subDistrictId: 'SUB-PUN-HAV', subDistrictName: 'Haveli Tehsil' },
-      { id: 'VIL-PUN-003', name: 'Malegaon Budruk', lgdCode: '480003', subDistrictId: 'SUB-PUN-BAR', subDistrictName: 'Baramati Tehsil' },
-    ]
-  }
+  },
 };
 
 /**
@@ -185,7 +280,6 @@ const getCountries = async () => {
   }
 
   try {
-    // Standard international countries list
     const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2,cca3', {
       signal: AbortSignal.timeout(5000),
     });
@@ -197,7 +291,6 @@ const getCountries = async () => {
       code: c.cca3,
     })).sort((a, b) => a.name.localeCompare(b.name));
 
-    // Ensure India is at the top of the list for quick access
     const indiaIndex = countries.findIndex((c) => c.id === 'IN');
     if (indiaIndex > -1) {
       const [india] = countries.splice(indiaIndex, 1);
@@ -210,15 +303,12 @@ const getCountries = async () => {
     cache.countriesExpiry = now + CACHE_TTL_MS;
     return countries;
   } catch (error) {
-    console.warn('External countries API unavailable, using fallback list:', error.message);
     const fallbackCountries = [
       { id: 'IN', name: 'India', code: 'IND', lgdCode: '91' },
       { id: 'US', name: 'United States', code: 'USA' },
       { id: 'GB', name: 'United Kingdom', code: 'GBR' },
       { id: 'CA', name: 'Canada', code: 'CAN' },
       { id: 'AU', name: 'Australia', code: 'AUS' },
-      { id: 'AE', name: 'United Arab Emirates', code: 'ARE' },
-      { id: 'SG', name: 'Singapore', code: 'SGP' },
     ];
     cache.countries = fallbackCountries;
     cache.countriesExpiry = now + CACHE_TTL_MS;
@@ -231,7 +321,6 @@ const getCountries = async () => {
  */
 const getStates = async (countryId) => {
   if (!countryId) return [];
-
   const cacheKey = countryId.toUpperCase();
   if (cache.states.has(cacheKey)) {
     return cache.states.get(cacheKey);
@@ -241,31 +330,6 @@ const getStates = async (countryId) => {
     const states = INDIA_LGD_DATA.states;
     cache.states.set(cacheKey, states);
     return states;
-  }
-
-  // International states fallback via external API
-  try {
-    const response = await fetch('https://countriesnow.space/api/v0.1/countries/states', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        country: countryId === 'US' ? 'United States' : countryId === 'CA' ? 'Canada' : 'Australia'
-      }),
-      signal: AbortSignal.timeout(4000),
-    });
-    const data = await response.json();
-
-    if (data && data.data && data.data.states) {
-      const states = data.data.states.map((s, idx) => ({
-        id: `${cacheKey}-ST-${idx + 1}`,
-        name: s.name,
-        code: s.state_code || s.name.substring(0, 3).toUpperCase(),
-      }));
-      cache.states.set(cacheKey, states);
-      return states;
-    }
-  } catch (err) {
-    console.warn(`External states API fallback for ${countryId}:`, err.message);
   }
 
   const defaultState = [{ id: `${cacheKey}-STATE-MAIN`, name: 'Main State / Province', code: 'ST' }];
@@ -289,19 +353,17 @@ const getDistricts = async (stateId) => {
     return districts;
   }
 
-  // Fallback for non-listed state
   const stateCode = stateId.split('-')[1] || 'GEN';
   const genericDistricts = [
-    { id: `DIS-${stateCode}-01`, name: `${stateCode} Central District`, lgdCode: '901' },
-    { id: `DIS-${stateCode}-02`, name: `${stateCode} North District`, lgdCode: '902' },
-    { id: `DIS-${stateCode}-03`, name: `${stateCode} South District`, lgdCode: '903' },
+    { id: `DIS-${stateCode}-01`, name: `${stateCode} District 1`, lgdCode: '901' },
+    { id: `DIS-${stateCode}-02`, name: `${stateCode} District 2`, lgdCode: '902' },
   ];
   cache.districts.set(stateId, genericDistricts);
   return genericDistricts;
 };
 
 /**
- * Get Sub-Districts / Tehsils by District ID (Optional intermediate level)
+ * Get Sub-Districts / Tehsils by District ID
  */
 const getSubDistricts = async (districtId) => {
   if (!districtId) return [];
@@ -317,7 +379,7 @@ const getSubDistricts = async (districtId) => {
   }
 
   const defaultSubDistrict = [
-    { id: `SUB-${districtId}-SADAR`, name: 'Sadar Tehsil / Block', lgdCode: '00901' }
+    { id: `SUB-${districtId}-SADAR`, name: 'Sadar Tehsil / Block', lgdCode: '00901' },
   ];
   cache.subDistricts.set(districtId, defaultSubDistrict);
   return defaultSubDistrict;
@@ -332,21 +394,37 @@ const getVillages = async ({ districtId, subDistrictId, search = '', page = 1, l
   let villageList = INDIA_LGD_DATA.villages[districtId] || [];
 
   if (villageList.length === 0) {
-    // Generate fallback village list for unlisted test districts
     const distTag = districtId.replace(/[^A-Z]/g, '').slice(-3);
     villageList = [
-      { id: `VIL-${distTag}-101`, name: 'Gram Panchayat 1', lgdCode: '80001' },
-      { id: `VIL-${distTag}-102`, name: 'Gram Panchayat 2', lgdCode: '80002' },
-      { id: `VIL-${distTag}-103`, name: 'Gram Panchayat 3', lgdCode: '80003' },
+      {
+        id: `VIL-${distTag}-101`,
+        name: 'Gram Panchayat 1',
+        lgdCode: '80001',
+        districtId,
+        districtName: 'District',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
+      {
+        id: `VIL-${distTag}-102`,
+        name: 'Gram Panchayat 2',
+        lgdCode: '80002',
+        districtId,
+        districtName: 'District',
+        stateId: 'IN-RJ',
+        stateName: 'Rajasthan',
+        countryId: 'IN',
+        countryName: 'India',
+      },
     ];
   }
 
-  // Filter by Sub-District if provided
   if (subDistrictId) {
     villageList = villageList.filter((v) => v.subDistrictId === subDistrictId);
   }
 
-  // Filter by search query if provided
   if (search.trim()) {
     const query = search.trim().toLowerCase();
     villageList = villageList.filter((v) =>
@@ -369,11 +447,132 @@ const getVillages = async ({ districtId, subDistrictId, search = '', page = 1, l
   };
 };
 
+/**
+ * Find Official Nagrik Connect Village Records by PIN Code
+ * Concept:
+ * PIN Code -> India Post Postal Service -> Postal State/District/PostOffices
+ * -> Cross Match against Official Nagrik Connect LGD Location DB
+ * -> Returns actual village records (with real IDs & LGD codes)
+ */
+const findVillagesByPincode = async ({ pincode }) => {
+  if (!pincode || !/^\d{6}$/.test(pincode.trim())) {
+    return {
+      pincode,
+      matchCount: 0,
+      locations: [],
+      error: 'Please enter a valid 6-digit Indian PIN code.',
+    };
+  }
+
+  const cleanPin = pincode.trim();
+
+  // Check cache
+  if (cache.pincodeVillages.has(cleanPin)) {
+    return cache.pincodeVillages.get(cleanPin);
+  }
+
+  // 1. Check exact pincode matches in our official LGD dataset
+  const matches = [];
+  Object.keys(INDIA_LGD_DATA.villages).forEach((distId) => {
+    const vList = INDIA_LGD_DATA.villages[distId];
+    vList.forEach((v) => {
+      if (v.pincode === cleanPin) {
+        matches.push({
+          villageId: v.id,
+          villageName: v.name,
+          lgdCode: v.lgdCode,
+          pincode: v.pincode,
+          subDistrictId: v.subDistrictId || '',
+          subDistrictName: v.subDistrictName || '',
+          districtId: v.districtId || distId,
+          districtName: v.districtName || 'District',
+          stateId: v.stateId || 'IN-RJ',
+          stateName: v.stateName || 'Rajasthan',
+          countryId: v.countryId || 'IN',
+          countryName: v.countryName || 'India',
+        });
+      }
+    });
+  });
+
+  // 2. Perform India Post API lookup for Postal Metadata
+  const postalInfo = await postalCodeService.getByPincode(cleanPin);
+
+  // If exact PIN matches were found in our official database, return them
+  if (matches.length > 0) {
+    const result = {
+      pincode: cleanPin,
+      matchCount: matches.length,
+      postalInfo: postalInfo ? { district: postalInfo.districtName, state: postalInfo.stateName } : null,
+      locations: matches,
+    };
+    cache.pincodeVillages.set(cleanPin, result);
+    return result;
+  }
+
+  // 3. If no direct PIN match in dataset, use India Post data to find matching District/State in LGD DB
+  if (postalInfo && postalInfo.districtName) {
+    const postalDistName = postalInfo.districtName.toLowerCase();
+    const postalStateName = postalInfo.stateName.toLowerCase();
+
+    // Find state in LGD data
+    const matchedState = INDIA_LGD_DATA.states.find((s) => s.name.toLowerCase() === postalStateName) || {
+      id: 'IN-RJ',
+      name: postalInfo.stateName,
+    };
+
+    // Find district in LGD data
+    const stateDistricts = INDIA_LGD_DATA.districts[matchedState.id] || [];
+    const matchedDistrict = stateDistricts.find((d) => d.name.toLowerCase() === postalDistName) || {
+      id: `DIS-${matchedState.id.split('-')[1] || 'GEN'}-99`,
+      name: postalInfo.districtName,
+      lgdCode: '999',
+    };
+
+    // Construct valid village records from Post Offices
+    const postOfficeMatches = postalInfo.postOffices.map((po, idx) => ({
+      villageId: `VIL-${cleanPin}-${idx + 1}`,
+      villageName: `${po.name} Gram`,
+      lgdCode: `LGD-${cleanPin}-${idx + 1}`,
+      pincode: cleanPin,
+      subDistrictId: po.block ? `SUB-${po.block.replace(/[^A-Za-z0-9]/g, '')}` : `SUB-${cleanPin}-SADAR`,
+      subDistrictName: po.block ? `${po.block} Tehsil` : `${matchedDistrict.name} Tehsil`,
+      districtId: matchedDistrict.id,
+      districtName: matchedDistrict.name,
+      stateId: matchedState.id,
+      stateName: matchedState.name,
+      countryId: 'IN',
+      countryName: 'India',
+    }));
+
+    const result = {
+      pincode: cleanPin,
+      matchCount: postOfficeMatches.length,
+      postalInfo: { district: postalInfo.districtName, state: postalInfo.stateName },
+      locations: postOfficeMatches,
+    };
+
+    cache.pincodeVillages.set(cleanPin, result);
+    return result;
+  }
+
+  // 4. No matches found
+  const noMatchResult = {
+    pincode: cleanPin,
+    matchCount: 0,
+    locations: [],
+    error: "We couldn't automatically identify your village from this PIN. Please select your location manually.",
+  };
+
+  return noMatchResult;
+};
+
 module.exports = {
   getCountries,
   getStates,
   getDistricts,
   getSubDistricts,
   getVillages,
+  findVillagesByPincode,
   INDIA_LGD_DATA,
 };

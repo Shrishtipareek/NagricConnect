@@ -114,10 +114,36 @@ const getVillages = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/locations/villages/by-pincode/:pincode
+ * Smart PIN-Code Assisted Village Lookup
+ */
+const getVillagesByPincode = async (req, res, next) => {
+  try {
+    const { pincode } = req.params;
+    if (!pincode || !/^\d{6}$/.test(pincode.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid 6-digit Indian PIN code.',
+      });
+    }
+
+    const result = await locationService.findVillagesByPincode({ pincode: pincode.trim() });
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getCountries,
   getStates,
   getDistricts,
   getSubDistricts,
   getVillages,
+  getVillagesByPincode,
 };
